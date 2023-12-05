@@ -19,7 +19,7 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
-#include "track1.h"
+#include "tracks.h"
 
 /** @addtogroup STM32L4xx_HAL_Examples
   * @{
@@ -41,7 +41,7 @@ __IO uint8_t ubKeyPressed = SET;
 
 /* Private function prototypes -----------------------------------------------*/
 static void DAC_Ch1_TriangleConfig(void);
-static void DAC_Ch1_Track1Config(void);
+static void DAC_Ch1_TrackConfig(track_t track);
 static void TIM6_Config(void);
 void SystemClock_Config(void);
 static void Error_Handler(void);
@@ -110,14 +110,14 @@ int main(void)
         /* The triangle wave has been selected */
 
         /* Triangle Wave generator -------------------------------------------*/
-        DAC_Ch1_TriangleConfig();
+        DAC_Ch1_TrackConfig(track1);
       }
       else
       {
         /* The escalator wave has been selected */
 
         /* Escalator Wave generator -------------------------------------------*/
-        DAC_Ch1_Track1Config();
+        DAC_Ch1_TrackConfig(track2);
       }
 
       ubKeyPressed = RESET;
@@ -196,7 +196,7 @@ static void Error_Handler(void)
   }
 }
 
-static void DAC_Ch1_Track1Config(void)
+static void DAC_Ch1_TrackConfig(track_t track)
 {
   /*##-1- Initialize the DAC peripheral ######################################*/
   if (HAL_DAC_Init(&DacHandle) != HAL_OK)
@@ -216,7 +216,7 @@ static void DAC_Ch1_Track1Config(void)
   }
 
   /*##-2- Enable DAC selected channel and associated DMA #############################*/
-  if (HAL_DAC_Start_DMA(&DacHandle, DACx_CHANNEL, (uint32_t *)(track1_wav+TRACK1_FMT_CHUNK_LENGTH), TRACK1_LENGTH-TRACK1_FMT_CHUNK_LENGTH, DAC_ALIGN_8B_R) != HAL_OK)
+  if (HAL_DAC_Start_DMA(&DacHandle, DACx_CHANNEL, (uint32_t *)(track.data), track.length, DAC_ALIGN_8B_R) != HAL_OK)
   {
     /* Start DMA Error */
     Error_Handler();

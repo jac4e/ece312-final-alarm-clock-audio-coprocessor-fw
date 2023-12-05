@@ -40,14 +40,14 @@ with wave.open(input, "rb") as f:
         out.write("#include <stdint.h>\n")
         out.write('#include "tracks.h"\n')
         out.write("\n")
-        out.write(f"const int8_t {output.split('.')[0]}_data[{f.getnframes()}] =" + "{\n")
+        out.write(f"const uint8_t {output.split('.')[0]}_data[{f.getnframes()}] =" + "{\n")
         
         for i in range(f.getnframes()):
             if i % 8 == 0:
                 out.write("  ")
 
             sample = f.readframes(1)
-            sample = int.from_bytes(sample, byteorder='little', signed=True)
+            sample = int.from_bytes(sample, byteorder="little", signed=False)
             out.write(str(sample) + ", ")
 
             if i % 8 == 7:

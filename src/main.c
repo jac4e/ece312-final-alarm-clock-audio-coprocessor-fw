@@ -1,33 +1,26 @@
 /**
   ******************************************************************************
-  * @file    DAC/DAC_SignalsGeneration/Src/main.c
-  * @author  MCD Application Team
-  * @brief   This example provides a short description of how to use the DAC
-  *          peripheral to generate several signals.
+  * @file    ECE312-final-project-audio-coprocessor-fe/src/main.c
+  * @author  Jacques Fourie
+  * @brief   The audio coprocessor firmware for the ECE312 final project.
   ******************************************************************************
   * @attention
   *
+  * Based off the DAC_SignalsGeneration example from the STM32CubeL4 firmware
+  * The examples are licensed under BSD 3-Clause License and have the following copyright notice:
+  * 
   * Copyright (c) 2017 STMicroelectronics.
   * All rights reserved.
-  *
-  * This software is licensed under terms that can be found in the LICENSE file
-  * in the root directory of this software component.
-  * If no LICENSE file comes with this software, it is provided AS-IS.
   *
   ******************************************************************************
   */
 
 /* Includes ------------------------------------------------------------------*/
+
+#include <math.h>
+
 #include "main.h"
 #include "tracks.h"
-
-/** @addtogroup STM32L4xx_HAL_Examples
-  * @{
-  */
-
-/** @addtogroup DAC_SignalsGeneration
-  * @{
-  */
 
 /* Private typedef -----------------------------------------------------------*/
 /* Private define ------------------------------------------------------------*/
@@ -35,12 +28,14 @@
 /* Private variables ---------------------------------------------------------*/
 DAC_HandleTypeDef    DacHandle;
 static DAC_ChannelConfTypeDef sConfig;
-const uint8_t aEscalator8bit[6] = {0x0, 0x33, 0x66, 0x99, 0xCC, 0xFF};
-__IO uint8_t ubSelectedWavesForm = 1;
+uint8_t sine_wav_data[8000]; // 1 Second of sine wave data
+uint8_t triangle_wav_data[8000]; // 1 Second of triangle wave data
+__IO uint8_t ubSelectedWavesForm = 0;
 __IO uint8_t ubKeyPressed = SET;
 
 /* Private function prototypes -----------------------------------------------*/
 static void DAC_Ch1_TriangleConfig(void);
+static void DAC_Ch1_SineConfig(void);
 static void DAC_Ch1_TrackConfig(track_t track);
 static void TIM6_Config(void);
 void SystemClock_Config(void);
@@ -96,6 +91,26 @@ int main(void)
   /*##-2- Configure the TIM peripheral #######################################*/
   TIM6_Config();
 
+  // Populate the sine wave data
+  for (int i = 0; i < 8000; i++) {
+    // 0.5 second wave at 440 Hz, 0.5 second silence
+    if (i < 4000) {
+      sine_wav_data[i] = (uint8_t)(127.5 * sin(2 * 3.14159265359 * 440 * i / 8000) + 127.5);
+    } else {
+      sine_wav_data[i] = 127.5;
+    }
+  }
+
+  // Populate the triangle wave data
+  for (int i = 0; i < 8000; i++) {
+    // 0.5 second wave at 440 Hz, 0.5 second silence
+    if (i < 4000) {
+      triangle_wav_data[i] = (uint8_t)((255/3.14159265359) * asin(sin(2 * 3.14159265359 * 440 * i / 8000)) + 127.5);
+    } else {
+      triangle_wav_data[i] = 127.5;
+    }
+  }
+
   /* Infinite loop */
   while (1)
   {
@@ -104,22 +119,20 @@ int main(void)
     {
       HAL_DAC_DeInit(&DacHandle);
 
-      /* select waves forms according to the PA.12 (Arduino D2) status */
-      if (ubSelectedWavesForm == 1)
-      {
-        /* The triangle wave has been selected */
-
-        /* Triangle Wave generator -------------------------------------------*/
-        DAC_Ch1_TrackConfig(track1);
+      switch (ubSelectedWavesForm) {
+        case 0:
+          DAC_Ch1_TriangleConfig();
+          break;
+        case 1:
+          DAC_Ch1_SineConfig();
+          break;
+        case 2:
+          DAC_Ch1_TrackConfig(track1);
+          break;
+        case 3:
+          DAC_Ch1_TrackConfig(track2);
+          break;
       }
-      else
-      {
-        /* The escalator wave has been selected */
-
-        /* Escalator Wave generator -------------------------------------------*/
-        DAC_Ch1_TrackConfig(track2);
-      }
-
       ubKeyPressed = RESET;
     }
   }
@@ -223,21 +236,16 @@ static void DAC_Ch1_TrackConfig(track_t track)
   }
 }
 
-/**
-  * @brief  DAC Channel1 Triangle Configuration
-  * @param  None
-  * @retval None
-  */
-static void DAC_Ch1_TriangleConfig(void)
+static void DAC_Ch1_SineConfig()
 {
   /*##-1- Initialize the DAC peripheral ######################################*/
   if (HAL_DAC_Init(&DacHandle) != HAL_OK)
   {
-    /* DAC initialization Error */
+    /* Initialization Error */
     Error_Handler();
   }
 
-  /*##-2- DAC channel2 Configuration #########################################*/
+  /*##-1- DAC channel1 Configuration #########################################*/
   sConfig.DAC_Trigger = DAC_TRIGGER_T6_TRGO;
   sConfig.DAC_OutputBuffer = DAC_OUTPUTBUFFER_ENABLE;
 
@@ -247,24 +255,37 @@ static void DAC_Ch1_TriangleConfig(void)
     Error_Handler();
   }
 
-  /*##-3- DAC channel2 Triangle Wave generation configuration ################*/
-  if (HAL_DACEx_TriangleWaveGenerate(&DacHandle, DACx_CHANNEL, DAC_TRIANGLEAMPLITUDE_1023) != HAL_OK)
+  /*##-2- Enable DAC selected channel and associated DMA #############################*/
+  if (HAL_DAC_Start_DMA(&DacHandle, DACx_CHANNEL, (uint32_t *)(sine_wav_data), 8000, DAC_ALIGN_8B_R) != HAL_OK)
   {
-    /* Triangle wave generation Error */
+    /* Start DMA Error */
+    Error_Handler();
+  }
+}
+
+static void DAC_Ch1_TriangleConfig(void)
+{
+  /*##-1- Initialize the DAC peripheral ######################################*/
+  if (HAL_DAC_Init(&DacHandle) != HAL_OK)
+  {
+    /* Initialization Error */
     Error_Handler();
   }
 
-  /*##-4- Enable DAC Channel1 ################################################*/
-  if (HAL_DAC_Start(&DacHandle, DACx_CHANNEL) != HAL_OK)
+  /*##-1- DAC channel1 Configuration #########################################*/
+  sConfig.DAC_Trigger = DAC_TRIGGER_T6_TRGO;
+  sConfig.DAC_OutputBuffer = DAC_OUTPUTBUFFER_ENABLE;
+
+  if (HAL_DAC_ConfigChannel(&DacHandle, &sConfig, DACx_CHANNEL) != HAL_OK)
   {
-    /* Start Error */
+    /* Channel configuration Error */
     Error_Handler();
   }
 
-  /*##-5- Set DAC channel1 DHR12RD register ################################################*/
-  if (HAL_DAC_SetValue(&DacHandle, DACx_CHANNEL, DAC_ALIGN_12B_R, 0x100) != HAL_OK)
+  /*##-2- Enable DAC selected channel and associated DMA #############################*/
+  if (HAL_DAC_Start_DMA(&DacHandle, DACx_CHANNEL, (uint32_t *)(triangle_wav_data), 8000, DAC_ALIGN_8B_R) != HAL_OK)
   {
-    /* Setting value Error */
+    /* Start DMA Error */
     Error_Handler();
   }
 }
@@ -282,7 +303,11 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
   ubKeyPressed = 1;
 
   /* Change the selected waves forms */
-  ubSelectedWavesForm = !ubSelectedWavesForm;
+  ubSelectedWavesForm++;
+  if (ubSelectedWavesForm > 3)
+  {
+    ubSelectedWavesForm = 0;
+  }
   }
 }
 

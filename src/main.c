@@ -30,7 +30,7 @@ DAC_HandleTypeDef    DacHandle;
 static DAC_ChannelConfTypeDef sConfig;
 uint8_t sine_wav_data[8000]; // 1 Second of sine wave data
 uint8_t triangle_wav_data[8000]; // 1 Second of triangle wave data
-__IO uint8_t ubSelectedWavesForm = 0;
+__IO uint8_t ubSelectedTrack = 0;
 __IO uint8_t ubKeyPressed = SET;
 
 /* Private function prototypes -----------------------------------------------*/
@@ -71,19 +71,20 @@ int main(void)
    /* Configure LED3 */
   BSP_LED_Init(LED3);
 
-  /* Configure PA.12 (Arduino D2) as input with External interrupt */
-  GPIO_InitStruct.Pin = GPIO_PIN_12;
+  /* Configure GPIO */
+  GPIO_InitStruct.Pin = GPIO_PIN_5|GPIO_PIN_4;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING_FALLING;
   GPIO_InitStruct.Pull = GPIO_PULLUP;
-  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
 
-  /* Enable GPIOA clock */
-  __HAL_RCC_GPIOA_CLK_ENABLE();
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
-  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+  /* Enable and set PB4 and PB5 EXTI Interrupt to the lowest priority */
+  HAL_NVIC_SetPriority(EXTI4_IRQn, 2, 0);
+  HAL_NVIC_EnableIRQ(EXTI4_IRQn);
 
-  /* Enable and set PA.12 (Arduino D2) EXTI Interrupt to the lowest priority */
-  NVIC_SetPriority((IRQn_Type)(EXTI15_10_IRQn), 0x03);
-  HAL_NVIC_EnableIRQ((IRQn_Type)(EXTI15_10_IRQn));
+  HAL_NVIC_SetPriority(EXTI9_5_IRQn, 2, 0);
+  HAL_NVIC_EnableIRQ(EXTI9_5_IRQn);
 
   /*##-1- Configure the DAC peripheral #######################################*/
   DacHandle.Instance = DACx;
@@ -119,7 +120,7 @@ int main(void)
     {
       HAL_DAC_DeInit(&DacHandle);
 
-      switch (ubSelectedWavesForm) {
+      switch (ubSelectedTrack) {
         case 0:
           DAC_Ch1_TriangleConfig();
           break;
@@ -297,18 +298,9 @@ static void DAC_Ch1_TriangleConfig(void)
   */
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
-  if(GPIO_Pin == GPIO_PIN_12)
-  {
-  /* Change the wave */
-  ubKeyPressed = 1;
-
-  /* Change the selected waves forms */
-  ubSelectedWavesForm++;
-  if (ubSelectedWavesForm > 3)
-  {
-    ubSelectedWavesForm = 0;
-  }
-  }
+  // Set ubSelectedTrack based on GPIO_Pin_4 and GPIO_Pin_5
+  ubSelectedTrack = (uint8_t)(HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_4) << 1) | HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_5);
+  ubKeyPressed = SET;
 }
 
 /**

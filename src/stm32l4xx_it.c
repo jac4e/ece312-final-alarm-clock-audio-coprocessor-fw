@@ -158,14 +158,28 @@ void DACx_DMA_IRQHandler(void)
 }
 
 /**
-  * @brief  This function handles external lines 10 to 15 interrupt request.
+  * @brief  This function handles external line 4 interrupt request.
   * @param  None
   * @retval None
   */
-void EXTI15_10_IRQHandler(void)
+void EXTI4_IRQHandler(void)
 {
-  HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_12);
+  HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_4);
 }
+
+/**
+  * @brief  This function handles external line 5 to 9 interrupt request.
+  * @param  None
+  * @retval None
+  */
+void EXTI9_5_IRQHandler(void)
+{
+  HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_5);
+}
+
+
+
+
 
 /**
   * @}
